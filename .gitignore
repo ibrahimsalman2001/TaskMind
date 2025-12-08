@@ -1,0 +1,48 @@
+# Bytecode / caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+venv311/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# IDE settings
+.vscode/
+.idea/
+
+# Jupyter/IPython
+.ipynb_checkpoints/
+*.ipynb
+
+# Logs
+*.log
+
+# Datasets (keep big/raw data out of git)
+data/
+*.csv
+*.xlsx
+
+# Hugging Face cache (optional; remove if you want cached models tracked)
+huggingface/
+
+# Model checkpoints and large artifacts (optional; adjust if using Git LFS)
+*.safetensors
+*.bin
+*.pt
+*.ckpt
+
+# Ignore SBERT encoder folders if using Git LFS; otherwise track as needed
+models/sbert_encoder/
+models/sbert_model/
+
+# Keep trained classifiers and encoders
+!models/*.pkl
+!models/label_classes.json
+!models/labels.csv
+!models/embeddings.npy
+!models/README.txt
