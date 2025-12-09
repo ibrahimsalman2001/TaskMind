@@ -46,3 +46,17 @@ models/sbert_model/
 !models/labels.csv
 !models/embeddings.npy
 !models/README.txt
+
+# Backend folder (exclude venv and build artifacts, keep source)
+backend/venv/
+backend/.venv/
+backend/__pycache__/
+backend/temp_videos/
+backend/*.log
+backend/.env
+
+# Keep backend source code and configs
+!backend/app/
+!backend/*.py
+!backend/requirements.txt
+!backend/README.md
