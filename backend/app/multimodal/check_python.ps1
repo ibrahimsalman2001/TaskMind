@@ -33,3 +33,4 @@ Write-Host ""
 Write-Host "Or install via Microsoft Store:" -ForegroundColor Yellow
 Write-Host "  Search for 'Python 3.12' in Microsoft Store" -ForegroundColor White
 
+
