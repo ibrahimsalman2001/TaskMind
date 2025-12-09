@@ -13,7 +13,10 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Audio transcriber using device: {device}")
 
 # Load Whisper model for transcription
-whisper_model = whisper.load_model("base")  # Can be "tiny", "base", "small", "medium", "large"
+# Using "small" model for better accuracy on music and singing
+# Models: tiny, base, small, medium, large
+# Trade-off: larger models are more accurate but slower
+whisper_model = whisper.load_model("small")  # Better accuracy for music/singing
 
 # Use keyword-based classification instead of trained model
 # This allows us to use all 22 categories without retraining
@@ -96,6 +99,88 @@ def transcribe_audio(audio_path: str) -> str:
     return result["text"]
 
 
+def _transcribe_segment_worker(args):
+    """Worker for multiprocessing: loads a whisper model and transcribes a single segment.
+    Args is a tuple (segment_path, model_name).
+    Returns tuple (index, text).
+    """
+    segment_path, model_name, index = args
+    try:
+        # Load model inside worker process
+        model = whisper.load_model(model_name)
+        res = model.transcribe(segment_path)
+        return index, res.get("text", "")
+    except Exception as e:
+        return index, ""
+
+
+def split_audio_into_segments(audio_path: str, out_dir: str, segment_length: int = 30) -> list:
+    """Split audio into fixed-length segments (seconds) using ffmpeg.
+
+    Returns list of segment file paths ordered by index.
+    """
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    # ffmpeg segment output pattern
+    pattern = str(out_dir / "segment_%04d.wav")
+    cmd = [
+        "ffmpeg",
+        "-i",
+        str(audio_path),
+        "-f",
+        "segment",
+        "-segment_time",
+        str(segment_length),
+        "-ar",
+        "16000",
+        "-ac",
+        "1",
+        "-y",
+        pattern,
+    ]
+    subprocess.run(cmd, check=True, capture_output=True)
+
+    # collect generated segments
+    segments = sorted([str(p) for p in out_dir.glob("segment_*.wav")])
+    return segments
+
+
+def transcribe_audio_parallel(audio_path: str, segment_length: int = 30, workers: int = 2, model_name: str = "base") -> str:
+    """Split audio into segments and transcribe in parallel using multiprocessing.
+
+    Note: each worker will load the Whisper model separately which uses more memory.
+    """
+    with tempfile.TemporaryDirectory(prefix="taskmind_audio_seg_") as tmp_dir:
+        segments = split_audio_into_segments(audio_path, tmp_dir, segment_length=segment_length)
+
+        if not segments:
+            return ""
+
+        # Prepare args as (segment_path, model_name, index)
+        args = [(seg, model_name, idx) for idx, seg in enumerate(segments)]
+
+        # Use multiprocessing to transcribe segments in parallel
+        import multiprocessing as mp
+
+        texts = [""] * len(args)
+        try:
+            with mp.Pool(processes=max(1, workers)) as pool:
+                for idx, text in pool.imap_unordered(_transcribe_segment_worker, args):
+                    texts[idx] = text
+        except Exception:
+            # Fallback to sequential transcription
+            texts = []
+            for seg in segments:
+                try:
+                    t = transcribe_audio(seg)
+                except Exception:
+                    t = ""
+                texts.append(t)
+
+        # Join texts preserving order
+        return "\n".join(texts)
+
+
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
     """
     Split text into overlapping chunks for better classification.
@@ -140,6 +225,7 @@ def normalize_scores(score_dict: Dict[str, int]) -> Dict[str, float]:
 def classify_text_chunks(chunks: List[str]) -> Dict[str, float]:
     """
     Classify text chunks using keyword matching and return aggregated scores.
+    If no keywords are found (empty transcription), returns uniform distribution.
     """
     if not chunks:
         return {cat: 0.0 for cat in CATEGORY_KEYWORDS.keys()}
@@ -150,8 +236,17 @@ def classify_text_chunks(chunks: List[str]) -> Dict[str, float]:
     # Extract tokens (words) from text
     tokens = re.findall(r"\w+", full_text.lower())
     
+    # If very few tokens detected (likely noise/music), return uniform distribution
+    if len(tokens) < 5:
+        # Return equal probability for all categories (indicating low confidence)
+        return {cat: round(1.0 / len(CATEGORY_KEYWORDS), 4) for cat in CATEGORY_KEYWORDS.keys()}
+    
     # Get raw scores
     raw_scores = get_category_scores_from_text(tokens)
+    
+    # If no keywords matched, return uniform distribution instead of zeros
+    if sum(raw_scores.values()) == 0:
+        return {cat: round(1.0 / len(CATEGORY_KEYWORDS), 4) for cat in CATEGORY_KEYWORDS.keys()}
     
     # Normalize scores
     norm_scores = normalize_scores(raw_scores)

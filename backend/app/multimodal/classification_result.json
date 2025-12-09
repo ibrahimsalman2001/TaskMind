@@ -1,0 +1,162 @@
+{
+  "cv_predictions": {
+    "per_frame_predictions": [
+      {
+        "frame_number": 1,
+        "predictions": [
+          [
+            "gown",
+            0.11450906842947006
+          ],
+          [
+            "cloak",
+            0.09014879167079926
+          ],
+          [
+            "perfume",
+            0.060697220265865326
+          ]
+        ]
+      },
+      {
+        "frame_number": 2,
+        "predictions": [
+          [
+            "abaya",
+            0.10929948836565018
+          ],
+          [
+            "boa constrictor",
+            0.08913625031709671
+          ],
+          [
+            "maillot",
+            0.04636223614215851
+          ]
+        ]
+      },
+      {
+        "frame_number": 3,
+        "predictions": [
+          [
+            "wig",
+            0.17095310986042023
+          ],
+          [
+            "sombrero",
+            0.060904134064912796
+          ],
+          [
+            "hamper",
+            0.04447844624519348
+          ]
+        ]
+      },
+      {
+        "frame_number": 4,
+        "predictions": [
+          [
+            "abaya",
+            0.237020343542099
+          ],
+          [
+            "boa constrictor",
+            0.09806514531373978
+          ],
+          [
+            "maillot",
+            0.04633953049778938
+          ]
+        ]
+      },
+      {
+        "frame_number": 5,
+        "predictions": [
+          [
+            "wig",
+            0.21164613962173462
+          ],
+          [
+            "sombrero",
+            0.06320536136627197
+          ],
+          [
+            "hamper",
+            0.03127533197402954
+          ]
+        ]
+      },
+      {
+        "frame_number": 6,
+        "predictions": [
+          [
+            "wig",
+            0.2806027829647064
+          ],
+          [
+            "brassiere",
+            0.15978357195854187
+          ],
+          [
+            "hand blower",
+            0.06305265426635742
+          ]
+        ]
+      }
+    ],
+    "total_frames_analyzed": 6
+  },
+  "ocr_text": " ٤  ؟٤  ",
+  "cv_scores": {
+    "Beauty & Fashion": 1.0
+  },
+  "transcription": " At just 18 years old, Lil Tay is back in the spotlight. This time, not for her early internet fame, but for a career move that has shocked and divided audiences. She revealed that she made an astonishing $15 million in only two weeks through her OnlyFans account. While her earnings are jaw-dropping, it's her outspoken views that have stirred the most controversy. Lil Tay recently came under fire for calling women who worked traditional nine-to-five jobs failures. That statement sparked intense backlash online. But now she's pushing back on the criticism, saying her intent was never to demean anyone. Instead, she claims she wanted to motivate others to think beyond the limitations of conventional work and chase financial independence. According to her, every woman should feel free to make choices that give them control over their lives and their bodies. Her perspective is deeply tied to her past. Lil Tay spoke about growing up broke, blaming her struggles on her father's household while praising her mother for supporting her through hardship. Her father, Christopher Hope, has denied those claims. But from Lil Tay's point of view, the pain of her upbringing fuels her drive to never be financially powerless again. Money, she says, is not just wealth, but a source of happiness and empowerment. She hopes her success can serve as inspiration, showing others that they too can get their money up and achieve a level of freedom most people only dream of. Still, her rise hasn't come without risk. She revealed that someone was recently caught hiding in her bushes trying to take photos of her. That frightening incident made her rethink publicly flaunting her earnings. Since then, she's hired security and even started boxing lessons for self-defense. Despite the dangers, Lil Tay is unapologetic about enjoying the luxuries that come with her success. She's even joked about eyeing Bugatti's now that she's fully in charge of her finances. To her, these purchases aren't just splurges, they're proof of how far she's come from a childhood of struggle to becoming a self-made millionaire in a matter of days. Love her or hate her, Lil Tay is sparking conversations about independence, money, and the paths people take to build their futures. And she isn't backing down.",
+  "audio_scores": {
+    "Academia & Explainer": 0.037,
+    "Science & Technology": 0.037,
+    "History & Documentaries": 0.037,
+    "Finance & Business": 0.1481,
+    "Travel & Lifestyle": 0.037,
+    "Beauty & Fashion": 0.037,
+    "Food & Cooking": 0.1111,
+    "News & Politics": 0.1481,
+    "Current Events Commentary": 0.2222,
+    "Sports (Professional)": 0.037,
+    "Islamic/Religious": 0.037,
+    "Autos & Vehicles": 0.037,
+    "Pets & Animals": 0.037,
+    "Adult/Flagged": 0.037
+  },
+  "metadata_scores": {
+    "Adult/Flagged": 1.0
+  },
+  "final_scores": {
+    "Academia & Explainer": 0.012339503084875771,
+    "Science & Technology": 0.012339503084875771,
+    "History & Documentaries": 0.012339503084875771,
+    "Finance & Business": 0.04939136234784059,
+    "Comedy & Skits": 0.0,
+    "Film & Animation": 0.0,
+    "Music & Dance": 0.0,
+    "Gaming & Esports": 0.0,
+    "Vlogs (General)": 0.0,
+    "Travel & Lifestyle": 0.012339503084875771,
+    "Beauty & Fashion": 0.3456728364182091,
+    "Food & Cooking": 0.037051859262964816,
+    "News & Politics": 0.04939136234784059,
+    "Current Events Commentary": 0.07410371852592963,
+    "Health & Wellness": 0.0,
+    "Sports (Professional)": 0.012339503084875771,
+    "Islamic/Religious": 0.012339503084875771,
+    "DIY & Craft": 0.0,
+    "Autos & Vehicles": 0.012339503084875771,
+    "Pets & Animals": 0.012339503084875771,
+    "Kids": 0.0,
+    "Adult/Flagged": 0.3456728364182091,
+    "Other (fallback / low-confidence / ambiguous content)": 0.0
+  },
+  "top_category": {
+    "category": "Beauty & Fashion",
+    "confidence": 0.3457
+  }
+}

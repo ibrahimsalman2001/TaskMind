@@ -1,0 +1,175 @@
+{
+  "per_frame_predictions": [
+    {
+      "frame": "/tmp/taskmind_detailed_32csxy45/frames/frame_000000.jpg",
+      "predictions": [
+        [
+          "comic book",
+          0.1652417778968811
+        ],
+        [
+          "sunglasses",
+          0.07684338837862015
+        ],
+        [
+          "barbershop",
+          0.06572525203227997
+        ]
+      ]
+    },
+    {
+      "frame": "/tmp/taskmind_detailed_32csxy45/frames/frame_000585.jpg",
+      "predictions": [
+        [
+          "stage",
+          0.1691027283668518
+        ],
+        [
+          "abaya",
+          0.10246328264474869
+        ],
+        [
+          "microphone",
+          0.08411432802677155
+        ]
+      ]
+    },
+    {
+      "frame": "/tmp/taskmind_detailed_32csxy45/frames/frame_001170.jpg",
+      "predictions": [
+        [
+          "trench coat",
+          0.16398479044437408
+        ],
+        [
+          "bulletproof vest",
+          0.12563590705394745
+        ],
+        [
+          "abaya",
+          0.11851353198289871
+        ]
+      ]
+    },
+    {
+      "frame": "/tmp/taskmind_detailed_32csxy45/frames/frame_001755.jpg",
+      "predictions": [
+        [
+          "motor scooter",
+          0.20407941937446594
+        ],
+        [
+          "bulletproof vest",
+          0.0979500338435173
+        ],
+        [
+          "moped",
+          0.07721612602472305
+        ]
+      ]
+    },
+    {
+      "frame": "/tmp/taskmind_detailed_32csxy45/frames/frame_002340.jpg",
+      "predictions": [
+        [
+          "comic book",
+          0.06357704848051071
+        ],
+        [
+          "book jacket",
+          0.04612552002072334
+        ],
+        [
+          "sunglasses",
+          0.042286306619644165
+        ]
+      ]
+    },
+    {
+      "frame": "/tmp/taskmind_detailed_32csxy45/frames/frame_002925.jpg",
+      "predictions": [
+        [
+          "binder",
+          0.052642326802015305
+        ],
+        [
+          "scoreboard",
+          0.03381803259253502
+        ],
+        [
+          "racket",
+          0.03119385987520218
+        ]
+      ]
+    }
+  ],
+  "ocr_text": "6{38٧ ٤١٧ 0N٤C V@ 4{8R٧ 68R٧ ٧ :٤5 W؟٦ Di 6/8R٧? c٩٤ 4380 CCNEC PAISED 77 370= 0t 4[8R٧",
+  "cv_scores": {
+    "Film & Animation": 0.3333,
+    "Vlogs (General)": 0.3333,
+    "Travel & Lifestyle": 0.3333
+  },
+  "transcription": " You vibes in with More",
+  "audio_scores": {
+    "Academia & Explainer": 0.0,
+    "Science & Technology": 0.0,
+    "History & Documentaries": 0.0,
+    "Finance & Business": 0.0,
+    "Comedy & Skits": 0.0,
+    "Film & Animation": 0.0,
+    "Music & Dance": 0.0,
+    "Gaming & Esports": 0.0,
+    "Vlogs (General)": 0.0,
+    "Travel & Lifestyle": 0.0,
+    "Beauty & Fashion": 0.0,
+    "Food & Cooking": 0.0,
+    "News & Politics": 0.0,
+    "Current Events Commentary": 0.0,
+    "Health & Wellness": 0.0,
+    "Sports (Professional)": 0.0,
+    "Islamic/Religious": 0.0,
+    "DIY & Craft": 0.0,
+    "Autos & Vehicles": 0.0,
+    "Pets & Animals": 0.0,
+    "Kids": 0.0,
+    "Adult/Flagged": 0.0,
+    "Other (fallback / low-confidence / ambiguous content)": 0.0
+  },
+  "metadata_scores": {
+    "Academia & Explainer": 0.1667,
+    "History & Documentaries": 0.1667,
+    "Vlogs (General)": 0.1667,
+    "News & Politics": 0.1667,
+    "Current Events Commentary": 0.1667,
+    "Autos & Vehicles": 0.1667
+  },
+  "final_scores": {
+    "Academia & Explainer": 0.07004830917874397,
+    "Science & Technology": 0.014492753623188406,
+    "History & Documentaries": 0.07004830917874397,
+    "Finance & Business": 0.014492753623188406,
+    "Comedy & Skits": 0.014492753623188406,
+    "Film & Animation": 0.12560386473429955,
+    "Music & Dance": 0.014492753623188406,
+    "Gaming & Esports": 0.014492753623188406,
+    "Vlogs (General)": 0.1811594202898551,
+    "Travel & Lifestyle": 0.12560386473429955,
+    "Beauty & Fashion": 0.014492753623188406,
+    "Food & Cooking": 0.014492753623188406,
+    "News & Politics": 0.07004830917874397,
+    "Current Events Commentary": 0.07004830917874397,
+    "Health & Wellness": 0.014492753623188406,
+    "Sports (Professional)": 0.014492753623188406,
+    "Islamic/Religious": 0.014492753623188406,
+    "DIY & Craft": 0.014492753623188406,
+    "Autos & Vehicles": 0.07004830917874397,
+    "Pets & Animals": 0.014492753623188406,
+    "Kids": 0.014492753623188406,
+    "Adult/Flagged": 0.014492753623188406,
+    "Other (fallback / low-confidence / ambiguous content)": 0.014492753623188406
+  },
+  "top_category": {
+    "category": "Vlogs (General)",
+    "confidence": 0.1812
+  }
+}
