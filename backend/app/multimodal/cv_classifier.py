@@ -1,11 +1,11 @@
 # cv_classifier.py
 
+from ocr_module import extract_text_from_frames
 import re
 from typing import List, Dict
 from collections import defaultdict
 import json
 from vision_model import classify_frame
-# (Later: from ocr_module import extract_text_from_frame)
 
 # Load keywords.json
 with open("app/multimodal/keywords.json", "r", encoding="utf-8") as f:
@@ -50,10 +50,11 @@ def classify_video_by_cv(frames: List[str]) -> Dict[str, float]:
         labels_only = [label for label, _ in top_predictions]
         all_visual_labels.extend(labels_only)
 
-    # TODO: Integrate real OCR here
-    fake_ocr_text = "PUBG kills 20 livestream bayan prophet Muhammad naat"
+    # Extract OCR text from all frames
+    ocr_text = extract_text_from_frames(frames)
+    ocr_tokens = re.findall(r"\w+", ocr_text.lower())
 
-    ocr_tokens = re.findall(r"\w+", fake_ocr_text.lower())
+    # Combine EfficientNet + OCR tokens
     all_tokens = all_visual_labels + ocr_tokens
 
     raw_scores = get_category_scores_from_text(all_tokens)

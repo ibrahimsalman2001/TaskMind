@@ -5,8 +5,8 @@ from torchvision import models, transforms
 from PIL import Image
 from typing import List, Tuple
 
-# Set device to GPU if available
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Set device to CPU only (GPU/CUDA causes initialization hang on Windows)
+device = torch.device("cpu")
 print(f"Using device: {device}")
 
 # Preprocessing pipeline for EfficientNet
@@ -25,7 +25,10 @@ model = model.to(device)  # Move model to GPU
 model.eval()  # Inference mode
 
 # Get ImageNet labels
-with open("D:/FYP/backend/imagenet_classes.txt") as f:
+import os
+script_dir = os.path.dirname(os.path.abspath(__file__))
+imagenet_path = os.path.join(script_dir, "../../imagenet_classes.txt")
+with open(imagenet_path) as f:
     idx_to_label = [line.strip() for line in f.readlines()]
 
 
