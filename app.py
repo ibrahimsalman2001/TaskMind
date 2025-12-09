@@ -5,9 +5,22 @@ from sentence_transformers import SentenceTransformer
 import joblib
 import pandas as pd
 import io
+import os
+import torch
 
 # === Load models ===
-encoder = SentenceTransformer("models/sbert_encoder")
+# Try to load local model, fallback to pre-trained model if not found
+sbert_path = "models/sbert_encoder"
+if os.path.exists(sbert_path):
+    encoder = SentenceTransformer(sbert_path)
+else:
+    print("⚠️  Local SBERT model not found. Using pre-trained 'all-mpnet-base-v2' model.")
+    encoder = SentenceTransformer("all-mpnet-base-v2")
+
+# Determine device (use CPU if CUDA not available)
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"Using device: {device}")
+
 classifier = joblib.load("models/taskmind_classifier.pkl")
 label_encoder = joblib.load("models/label_encoder.pkl")
 
@@ -27,7 +40,7 @@ class VideoInput(BaseModel):
 @app.post("/classify")
 async def classify_video(video: VideoInput, min_conf: float = 0.45):
     text = f"{video.title} {video.description} {video.tags}"
-    emb = encoder.encode([text], device="cuda")
+    emb = encoder.encode([text], device=device)
     probs = classifier.predict_proba(emb)[0]
     idx = probs.argmax()
     label = label_encoder.inverse_transform([idx])[0]
@@ -43,7 +56,7 @@ async def classify_video(video: VideoInput, min_conf: float = 0.45):
 @app.post("/classify-batch")
 async def classify_batch(videos: List[VideoInput], min_conf: float = 0.45):
     texts = [f"{v.title} {v.description} {v.tags}" for v in videos]
-    embs = encoder.encode(texts, batch_size=16, device="cuda")
+    embs = encoder.encode(texts, batch_size=16, device=device)
     probas = classifier.predict_proba(embs)
     preds, confs = [], []
     for proba in probas:

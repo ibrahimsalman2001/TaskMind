@@ -8,7 +8,9 @@ import json
 from vision_model import classify_frame
 
 # Load keywords.json
-with open("app/multimodal/keywords.json", "r", encoding="utf-8") as f:
+from pathlib import Path
+keywords_path = Path(__file__).parent / "keywords.json"
+with open(keywords_path, "r", encoding="utf-8") as f:
     CATEGORY_KEYWORDS = json.load(f)
 
 

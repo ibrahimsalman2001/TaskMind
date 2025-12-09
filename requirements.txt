@@ -9,3 +9,8 @@ sentence-transformers
 torch
 transformers
 tqdm
+openai-whisper
+yt-dlp
+opencv-python
+Pillow
+ffmpeg-python

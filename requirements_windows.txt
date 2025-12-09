@@ -1,0 +1,37 @@
+# Requirements file optimized for Windows (pre-built wheels)
+# Install with: pip install -r requirements_windows.txt --only-binary :all: --prefer-binary
+
+# Core packages (install in order)
+# Note: Use --only-binary :all: --prefer-binary flags to avoid building from source
+numpy
+pandas
+scikit-learn
+joblib
+
+# PyTorch (CPU version - faster install)
+--index-url https://download.pytorch.org/whl/cpu
+torch
+
+# ML/NLP packages
+transformers
+sentence-transformers
+
+# Computer Vision
+opencv-python
+Pillow
+
+# Audio processing
+openai-whisper
+
+# Video downloading
+yt-dlp
+
+# API
+fastapi
+uvicorn
+python-multipart
+
+# Utilities
+tqdm
+ffmpeg-python
+

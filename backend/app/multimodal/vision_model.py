@@ -26,8 +26,9 @@ model.eval()  # Inference mode
 
 # Get ImageNet labels
 import os
-script_dir = os.path.dirname(os.path.abspath(__file__))
-imagenet_path = os.path.join(script_dir, "../../imagenet_classes.txt")
+imagenet_path = os.path.join(os.path.dirname(__file__), "../../../backend/imagenet_classes.txt")
+if not os.path.exists(imagenet_path):
+    imagenet_path = os.path.join(os.path.dirname(__file__), "../../imagenet_classes.txt")
 with open(imagenet_path) as f:
     idx_to_label = [line.strip() for line in f.readlines()]
 
