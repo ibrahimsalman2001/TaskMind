@@ -1,199 +1,280 @@
-**TaskMind — Multi-Modal Video Classification: Full Pipeline Documentation
+**TaskMind — Multi-Modal Video Classification: Detailed Pipeline Documentation**
 
-**Overview**
-- **Project**: TaskMind — a three-pipeline, multi-modal video classification system designed to classify YouTube or local videos into a fixed set of categories using visual, audio (transcription), and metadata signals.
-- **Purpose**: Provide robust, explainable classification by fusing complementary signals: visual content, spoken words (ASR), and text metadata.
-- **Output**: Per-pipeline category scores and a final aggregated probability distribution across categories.
+Overview
+--------
++ Project: TaskMind — a three-pipeline, multi-modal video classification system that combines Computer Vision (frames + OCR), Audio Transcription (ASR) and Metadata analysis to classify YouTube or local videos into a fixed set of categories defined in `keywords.json`.
++ Goal: Provide an explainable, extendable pipeline that produces per-modality category scores and a final aggregated probability distribution.
 
-**Contents of this document**
-- System architecture and processing flow
-- Detailed description of each pipeline: Computer Vision (CV), Audio Transcription (ASR) and Audio Classification, Metadata
-- Models and libraries used and rationale
-- Data flow and implementation details (how videos are processed end-to-end)
-- Scoring, normalization, aggregation and final decision rules
-- Failure modes and limitations
-- Suggested improvements and future work
-- Typical questions (technical & non-technical) and suggested answers for a final-year project panel
-- How to run and test the pipeline locally
+How to use this document
+------------------------
+This file is intended to be self-contained and used for:
+- Developer onboarding: precise function-level details and commands to run the system locally.
+- Project demonstration: step-by-step explanation and a suggested demo plan for a panel.
+- Extension & research: clear places to improve, instrument, or benchmark.
 
-**System Architecture & Processing Flow**
-- **High-level steps**:
-  - Input: YouTube URL (via `yt-dlp`) or local video file
-  - Frame extraction: sample N frames (default 6)
-  - CV pipeline: classify frames with a pre-trained image classifier and run OCR on frames
-  - Audio pipeline: extract audio, transcribe using Whisper, classify transcription via keyword matching
-  - Metadata pipeline: analyze title/description/tags via keyword matching
-  - Aggregation: normalize each pipeline’s scores, apply weights (default equal), compute final scores
-  - Output: JSON containing `cv_scores`, `audio_scores`, `metadata_scores`, `final_scores`, per-frame predictions and the transcription
+Table of contents
+-----------------
+1. High-level architecture and data flow
+2. Computer Vision pipeline (details + code references)
+3. Audio (ASR) pipeline (details + code references)
+4. Metadata pipeline (details + code references)
+5. Scoring, normalization and aggregation (formulas and examples)
+6. Output format and sample JSON
+7. Implementation notes, parameters and commands
+8. Failure modes, limitations and mitigation
+9. Evaluation, metrics and test set suggestions
+10. Demo script and final-year panel Q&A (technical + non-technical)
+11. Next steps & recommended improvements
 
-**Categories & Keywords**
-- Categories are defined in `backend/app/multimodal/keywords.json` with keyword lists per category.
-- Keyword matching is the primary approach for text-based classification (metadata + ASR + OCR tokens).
-- This design allows quick extension of categories and keywords without retraining models.
+1 — High-level architecture and data flow
+----------------------------------------
+Inputs: a YouTube URL (downloaded using `yt-dlp`) or a local video file. The pipeline runs three independent modules and fuses their outputs.
 
-**Pipeline 1 — Computer Vision (CV)**
-**Purpose**: Extract visual cues from frames to infer content category signals (objects, scenes, text in frames).
+High-level processing steps (detailed):
+1. Video acquisition: download (yt-dlp) or use local file. Save to a temporary working directory.
+2. Frame extraction: sample `N` frames from the video using `ffmpeg` / OpenCV utilities (`frame_extractor.py`). Default `N=6`.
+3. CV pipeline: classify each frame with `vision_model.classify_frame()` (EfficientNet-B0) and extract text from each frame with EasyOCR (`ocr_module.extract_text_from_frames()`).
+4. Audio pipeline: extract audio (`audio_transcriber.extract_audio()`), transcribe (Whisper `small`), chunk transcription, and map tokens to categories via `classify_text_chunks()`.
+5. Metadata pipeline: tokenize title/description/tags and map tokens to categories (`metadata_classifier.classify_metadata()`).
+6. Aggregation: normalize each modality to a probability vector and compute a weighted sum to produce the final distribution (`pipeline.aggregate_scores()`).
 
-**Implementation Summary**:
-- **Frame extraction**: `backend/app/multimodal/frame_extractor.py`
-  - Uses `ffmpeg` (or OpenCV) to extract `num_frames` sample frames from the video, saved to a temporary directory.
-  - Default sampling: 6 frames (configurable via `--frames` argument to `main.py`).
-- **Image classification**: `backend/app/multimodal/vision_model.py`
-  - Model used: `torchvision.models.efficientnet_b0(pretrained=True)` (ImageNet-pretrained).
-  - Preprocessing: resize to 224x224, normalize with ImageNet mean/std.
-  - Inference: top-k predictions per frame (default k=3).
-- **Optical Character Recognition (OCR)**: `backend/app/multimodal/ocr_module.py`
-  - Library: `easyocr.Reader(['en','ur'], gpu=False)`
-  - Extracts textual tokens from each frame; output concatenated and used as additional text tokens for CV scoring.
+2 — Computer Vision pipeline (CV)
+---------------------------------
+Goal: produce visual evidence that supports category labels (objects, scene context, on-screen text).
 
-**Why EfficientNet-B0?**
-- EfficientNet-B0 is a strong, lightweight ImageNet model offering a good accuracy/compute trade-off for inference on CPU (suitable for dev machines and small servers).
-- Uses a pre-trained model avoids the need for domain-specific dataset or retraining for many categories.
-- Practical for a student project: easy to use, widely documented, quick to run.
+Files: `frame_extractor.py`, `vision_model.py`, `ocr_module.py`, `metadata_classifier.py` (used for final scoring)
 
-**CV Scoring Process**:
-- Collect top labels from all frames (labels come from ImageNet taxonomy). Combine these labels (converted to tokens) with OCR tokens.
-- Apply keyword matching against `keywords.json` (same logic used by metadata pipeline) to count keyword matches per category.
-- Normalize raw counts to form a probability distribution (sum to 1). If no matches, return a uniform distribution (fallback).
+Frame extraction (what and why)
+- Code: `frame_extractor.extract_sample_frames(video_path, num_frames, output_dir)`
+- Method: sample `num_frames` evenly across video duration (default 6). Sampling fewer frames reduces compute but may miss context; more frames increase robustness at cost of slower runtime.
+- Example ffmpeg command used by the module (conceptually):
 
-**Pipeline 2 — Audio Transcription & Audio Classification (ASR)**
-**Purpose**: Extract spoken words from audio track (ASR) and classify the resulting text into categories using keyword matching.
+```bash
+ffmpeg -i video.mp4 -vf "select='not(mod(n,FRAME_INTERVAL))'" -vsync vfr -q:v 2 frames/out_%03d.jpg
+```
 
-**Implementation Summary**:
-- **Audio extraction**: `audio_transcriber.extract_audio()`
-  - Uses `ffmpeg` to convert the video’s audio to mono, 16kHz WAV (`pcm_s16le`) — a format well-suited for Whisper.
-- **ASR / Transcription**: `audio_transcriber.transcribe_audio()`
-  - Model used: `openai/whisper` Python package (local whisper binding)
-  - Model variant: **`small`** (default chosen in this repo)
-  - Rationale for `small`:
-    - Whisper model family: `tiny` → `base` → `small` → `medium` → `large`.
-    - `small` was chosen as a trade-off: significantly better transcription quality on music / singing than `base`/`tiny`, while still feasible to run locally in reasonable time (compared to `medium`/`large`).
-    - For challenging content (heavy music, children’s singing), larger models (`medium`/`large`) offer further quality improvements but require more memory/time.
-  - Options & parallelization: the code contains utilities to split audio into segments and transcribe in parallel (with a worker-per-process model), but the default runs sequential transcription with the loaded `whisper_model` for simplicity.
-- **Text chunking**: `chunk_text()` splits large transcriptions into overlapping chunks (defaults: 500 words per chunk with 50-word overlap) to limit keyword matching biases across long transcripts.
-- **Classification**: `classify_text_chunks()` performs token extraction and keyword matching against `keywords.json`.
-  - If transcription is empty or very short (less than 5 tokens) or if no keywords matched, the pipeline returns a uniform distribution across categories (fallback to indicate low confidence instead of returning zeros).
-  - Otherwise, raw keyword match counts per category are normalized to probabilities.
+Image classification (model + preprocessing)
+- Code: `vision_model.classify_frame(image_path, top_k=3)`
+- Model: `torchvision.models.efficientnet_b0(pretrained=True)` (ImageNet weights).
+- Preprocessing: resize/crop to 224x224, ToTensor, ImageNet normalization.
+- Output: top-k ImageNet labels with probabilities per frame.
 
-**Why Whisper (small)?**
-- Whisper is robust at noisy audio and has language detection plus strong generalization across accents and content types.
-- Music and singing are particularly challenging for ASR; `small` provides a practical balance between quality and inference cost for local runs.
-- Using Whisper allows us to extract richer textual signals for semantic classification via keywords without training a custom ASR.
+Why EfficientNet-B0?
+- Good accuracy/compute tradeoff for CPU inference.
+- Low setup complexity — reliable baseline for student projects.
 
-**Pipeline 3 — Metadata Classification**
-**Purpose**: Use the video’s title, description and tags as explicit textual signals (often the strongest single signal for many content categories).
+OCR (why included)
+- Code: `ocr_module.extract_text_from_frames(frames)` (uses EasyOCR)
+- Purpose: extract on-screen text (titles, captions, menus, logos) that can be strong category signals (e.g., "Tutorial", "Recipe").
+- Limitations: OCR may be noisy on low-resolution frames or stylized fonts.
 
-**Implementation Summary**:
-- **Extraction**: The `main.py` accepts `--title`, `--description` and `--tags`. For YouTube downloads, if title/description are provided they’re used; otherwise the user supplies them for classification.
-- **Tokenization & Matching**: `metadata_classifier.classify_metadata()` tokenizes the text and counts keyword matches per category using `keywords.json`.
-- **Normalization**: Raw counts are normalized to form a probability distribution. If no tokens or no matches, return uniform distribution.
+CV post-processing and mapping to categories
+- The CV pipeline collects top labels from all frames plus OCR tokens.
+- It uses `metadata_classifier.get_category_scores_from_text()` (shared keyword matcher) to count keyword hits per category.
+- This count is normalized by `metadata_classifier.normalize_scores()` to produce `cv_scores`.
 
-**Why keyword matching for metadata?**
-- Metadata is textual and often contains direct category signals (e.g., "Baby Shark", "tutorial", "vlog"). A keyword approach is simple, explainable, and effective without collecting labeled metadata for supervised training.
-- This method is easy to audit and update (add keywords for edge cases) and very fast to run.
+Implementation notes (function-level)
+- `vision_model.classify_frame(image_path, top_k=3)`:
+  - Loads image, applies `image_transform`, runs model, applies softmax, returns top-k labels and probabilities as floats.
 
-**Aggregation & Final Scoring**
-**Module**: `pipeline.aggregate_scores()`
+3 — Audio (ASR) pipeline
+-------------------------
+Goal: transform speech and significant sung parts into text tokens that yield semantic signals for classification.
 
-**Steps**:
-- Normalize each pipeline’s output scores to sum to 1 (the `normalize_scores()` function ensures a valid probability distribution; if a pipeline produces all zeros it converts them to a uniform distribution).
-- Default weights: equal weighting for each pipeline: `cv=1/3`, `audio=1/3`, `metadata=1/3`. Weights are configurable via the `aggregate_scores()` call.
-- For each category, final_score = weight_cv * cv_norm[cat] + weight_audio * audio_norm[cat] + weight_metadata * metadata_norm[cat].
-- Final scores are returned as a dictionary mapping categories to probabilities; the top category and its confidence are stored as `top_category`.
+Files: `audio_transcriber.py`
 
-**Why equal weighting?**
-- Simplicity and robustness: equal weights provide a neutral starting point when modality reliabilities vary by video.
-- Metadata is often the most reliable signal; in practice teams may tune weights (e.g., give more weight to metadata) or learn weights using a small validation set.
+Audio extraction
+- Code: `extract_audio(video_path, output_dir)`
+- Implementation: uses ffmpeg to produce `audio.wav` with parameters optimized for Whisper (mono, 16kHz):
 
-**End-to-End Execution (What happens when you run `main.py`)**
-1. Input validation (title required, either `--url` or `--input-file` required).
-2. Download or use local file.
-3. Extract frames and run CV classification + OCR → `cv_scores`.
-4. Extract audio → run Whisper transcription → chunk & classify → `audio_scores`.
-5. Classify metadata text → `metadata_scores`.
-6. Aggregate the three normalized score vectors → `final_scores`.
-7. Save output JSON to `backend/app/multimodal/classification_result.json` with per-pipeline outputs and final category.
+```bash
+ffmpeg -i video.mp4 -vn -acodec pcm_s16le -ar 16000 -ac 1 -y audio.wav
+```
 
-**Failure Modes & Limitations**
-- **ASR Errors on Music & Singing**: Even Whisper can mis-transcribe highly musical or overlapped-sung audio. Mitigation: use `small/medium/large` Whisper or specialized music-robust ASR.
-- **CV Domain Gap**: EfficientNet-B0 is trained on ImageNet (natural images). It may not recognize stylized cartoons or animation well (affects kids’ content). Mitigation: fine-tune on domain-specific frames or use models trained on scene/gesture/thumbnail datasets.
-- **Keyword Approach Limitations**: Keyword matching is brittle to phrasing and synonyms. It provides explainability but lower recall for paraphrases. Mitigation: expand keyword lists, use lemmatization/stemming, or switch to a supervised text classifier (fine-tuned transformer) for metadata/ASR tokens.
-- **YouTube Download Errors**: `yt-dlp` may require cookies or encounter rate-limits. Provide `--cookies` and handle download retries.
-- **Resource Constraints**: Whisper `small`/`medium`/`large` models are resource-hungry; CPU inference is slow. GPU recommended for medium/large.
+Transcription (Whisper)
+- Code: `transcribe_audio(audio_path)`
+- Model: `whisper.load_model("small")` — chosen for the project as a balance of accuracy and cost.
+- Why `small`:
+  - `small` improves transcription on music and singing relative to `base`/`tiny`, without the memory/time requirements of `medium`/`large`.
+  - Allows the project to run locally and still produce usable transcriptions for children’s songs / music-heavy content.
 
-**Suggested Improvements & Future Work**
-- Replace keyword matching with a learned text classifier (fine-tune BERT/DistilBERT) for metadata and ASR tokens to improve robustness.
-- Fine-tune a vision model (or use modern architectures like CLIP or ViT) on video thumbnails and frames for domain-specific performance.
-- Use CLIP (openai/clip) to jointly embed images and text; CLIP can directly score categories with text prompts (zero-shot) and often works well on diverse images (cartoons, stylized thumbnails).
-- Add a confidence calibration step and/or a meta-classifier to learn optimal modality weights from a labeled validation set.
-- Implement ensemble strategies and temporal modeling (use more frames or short clips, apply video-level models e.g., I3D, SlowFast) to capture motion cues.
+Parallelization and segmentation
+- The repository includes `transcribe_audio_parallel()` which:
+  - Splits audio into 30s segments (via ffmpeg), transcribes each segment in separate processes (each worker loads a Whisper model). This reduces end-to-end wall-clock time at the cost of higher memory use.
+- Default, simpler path: sequential transcription using the already-loaded `whisper_model`.
 
-**Evaluation & Metrics**
-- Prepare a labeled test set containing representative videos for each category.
-- Compute precision/recall/F1 and accuracy for top-1 and top-3 predictions.
-- Measure per-modality performance to guide weight tuning (e.g., metadata may have high precision but low recall on certain categories).
+Chunking and keyword classification
+- `chunk_text(text, chunk_size=500, overlap=50)` splits the transcription into overlapping chunks. Each chunk is tokenized.
+- `classify_text_chunks(chunks)` combines tokens across chunks and uses `get_category_scores_from_text()` to count keyword matches from `keywords.json`.
+- If transcription is empty, very short (<5 tokens), or no keywords matched, the function returns a uniform distribution (this communicates low confidence instead of biasing to specific categories with zero evidence).
 
-**Practical Notes & Commands**
-- Run pipeline (example using YouTube URL):
+Practical considerations
+- ASR quality degrades with heavy music, layered vocals, or strong background instrumentation. If transcription quality is critical, upgrade to Whisper `medium`/`large` and run on GPU.
+
+4 — Metadata pipeline
+----------------------
+Goal: use video-provided text (title/description/tags) — often the single strongest signal.
+
+Files: `metadata_classifier.py`
+
+Process
+- `classify_metadata(title, description, tags)` concatenates inputs, tokenizes with `re.findall(r"\\w+", text.lower())`, and counts keyword matches against `keywords.json`.
+- `normalize_scores()` converts raw counts to a probability distribution (sum to 1). If nothing matched, it returns uniform distribution.
+
+Why this simple approach?
+- Metadata is usually short and contains direct cues. Keyword matching is explainable and fast.
+
+5 — Scoring, normalization and aggregation (math + examples)
+--------------------------------------------------------
+Notation:
+- Let C be the set of categories from `keywords.json` (|C| = M).
+- For each pipeline p in {cv, audio, metadata}, let s_p(c) be the raw score for category c before normalization (counts or model outputs).
+
+Normalization (per pipeline):
+  cv_norm(c) = s_cv(c) / sum_c s_cv(c)  if sum_c s_cv(c) > 0
+  otherwise cv_norm(c) = 1/M (uniform)
+
+Aggregation (weighted sum):
+  final(c) = w_cv * cv_norm(c) + w_audio * audio_norm(c) + w_meta * meta_norm(c)
+  where w_cv + w_audio + w_meta = 1 (default each = 1/3)
+
+Example (toy):
+- Categories: [Kids, Music, Travel] (M=3)
+- cv_norm = [0.6, 0.4, 0.0]
+- audio_norm = [0.0, 1.0, 0.0]
+- meta_norm = [1.0, 0.0, 0.0]
+- weights = [1/3, 1/3, 1/3]
+
+final(Kids) = (1/3)*0.6 + (1/3)*0.0 + (1/3)*1.0 = 0.5333
+final(Music) = (1/3)*0.4 + (1/3)*1.0 + (1/3)*0.0 = 0.4667
+final(Travel) = 0.0
+
+The top category is Kids (53.33% confidence).
+
+6 — Output format and sample JSON
+---------------------------------
+Output file: `backend/app/multimodal/classification_result.json`
+
+Structure (fields of interest):
+- `cv_predictions`: per-frame predictions (frame index → top labels + confidences)
+- `ocr_text`: concatenated OCR text
+- `cv_scores`: normalized CV category distribution (dict category → float)
+- `transcription`: full ASR text
+- `audio_scores`: normalized audio category distribution
+- `metadata_scores`: normalized metadata category distribution
+- `final_scores`: aggregated distribution across categories
+- `top_category`: {"category": <str>, "confidence": <float>}
+
+Example snippet (abridged JSON):
+
+```json
+{
+  "cv_scores": {"Kids": 0.66, "Travel": 0.33},
+  "audio_scores": {"Music": 1.0},
+  "metadata_scores": {"Kids": 1.0},
+  "final_scores": {"Kids": 0.66, "Music": 0.17, "Travel": 0.17},
+  "top_category": {"category": "Kids", "confidence": 0.66}
+}
+```
+
+7 — Implementation notes, parameters and commands
+-------------------------------------------------
+Key config points you may change for experiments:
+- `--frames`: number of frames to extract (more frames → better CV coverage, slower).
+- Whisper model: change `whisper.load_model("small")` to `"medium"`/`"large"` for higher ASR quality (requires GPU for practical speeds).
+- Segment length for parallel ASR: `segment_length` in `transcribe_audio_parallel()` (default 30s).
+
+Run examples
 
 ```bash
 cd /workspaces/TaskMind/backend/app/multimodal
+# Run with YouTube (download) and cookies
 python main.py --url "https://www.youtube.com/watch?v=..." --title "Video Title" --cookies /path/to/cookies.txt
-```
 
-- Run with local file:
-
-```bash
+# Run with local file and 8 frames
 python main.py --input-file /path/to/video.mp4 --title "Video Title" --frames 8
 ```
 
-- Output JSON saved to: `backend/app/multimodal/classification_result.json`.
+8 — Failure modes, limitations and mitigation
+---------------------------------------------
+ASR-specific
+- Problem: low-quality transcription for music and singing.
+- Mitigation: use Whisper `medium`/`large` or specialized music ASR models; run on GPU; add voice activity detection (VAD) to isolate speech segments.
 
-**Questions for Final-Year Project Panel (with concise suggested answers)**
-**Technical**
-- Q: Why three pipelines (CV, ASR, Metadata)?
-  - A: Complementary signals reduce overall error — metadata often contains explicit category hints, ASR captures spoken content, and CV captures visual context; fusion yields more robust classification.
-- Q: Why use keyword matching instead of ML classifiers for text? 
-  - A: Simplicity, explainability, no labeled data required; allows rapid prototyping and easy extension. For higher performance, move to supervised models.
-- Q: Why EfficientNet-B0 and Whisper-small? 
-  - A: EfficientNet-B0 balances speed and accuracy on CPU; Whisper-small balances transcription quality vs compute for music heavy content. Both choices are pragmatic for a student project running on limited hardware.
-- Q: How is scoring aggregated?
-  - A: Normalize per-pipeline distributions to sum to 1, apply pipeline weights (default equal), and sum weighted probabilities per category to produce final distribution.
-- Q: How can you improve results on cartoons/animated kids content? 
-  - A: Use CLIP or fine-tune a vision model on a labeled dataset containing thumbnails/frames from animated content, or include keywords that map common visuals (balloons, toys) to Kids.
+CV-specific
+- Problem: ImageNet labels do not cover stylized cartoon objects (domain gap).
+- Mitigation: fine-tune on domain dataset; use CLIP zero-shot matching with category prompts; map common visual tokens (balloon, toy) to Kids category via keyword expansion.
 
-**Non-Technical / Presentation**
-- Q: What real-world problem does TaskMind solve? 
-  - A: It helps automatically tag and route user-generated videos (e.g., moderation, content recommendation, indexing) by combining audio, visual, and metadata signals.
-- Q: How does the project consider privacy and ethics? 
-  - A: The pipeline operates on public videos or those provided by the user; transcription and metadata handling should follow privacy policies and avoid storing sensitive data. Use opt-in data sources and consider redaction.
-- Q: What are the deployment costs? 
-  - A: Key costs are compute for Whisper and model inference. Whisper-small on CPU is slow; GPU reduces runtime. Storage and bandwidth for video downloads also matter.
+Text-classification-specific
+- Problem: keywords miss synonyms, abbreviations, or multi-word phrases.
+- Mitigation: add stemming/lemmatization, synonyms, or train a transformer-based classifier on labeled samples.
 
-**Appendix: Files & Key Modules**
-- `backend/app/multimodal/main.py` — pipeline orchestration and CLI
-- `backend/app/multimodal/frame_extractor.py` — download and frame sampling
-- `backend/app/multimodal/vision_model.py` — EfficientNet-B0 inference
-- `backend/app/multimodal/ocr_module.py` — EasyOCR-based OCR
-- `backend/app/multimodal/audio_transcriber.py` — ffmpeg audio extraction, Whisper transcription, chunking and keyword classification
-- `backend/app/multimodal/metadata_classifier.py` — keyword matching for metadata
-- `backend/app/multimodal/pipeline.py` — score normalization and aggregation
-- `backend/app/multimodal/keywords.json` — category keyword mappings
+Operational
+- Problem: `yt-dlp` rate limits and cookies needed for age-restricted content.
+- Mitigation: provide `--cookies`, add retries, increase backoff delays.
 
-**References & Resources**
-- Whisper: https://github.com/openai/whisper
-- EfficientNet / torchvision: https://pytorch.org/vision/stable/models.html
-- CLIP for possible improvement: https://github.com/openai/CLIP
-- EasyOCR: https://github.com/JaidedAI/EasyOCR
-- yt-dlp: https://github.com/yt-dlp/yt-dlp
+9 — Evaluation strategy and metrics
+----------------------------------
+Dataset creation
+- Curate a balanced set of videos for each category. For each video include: URL, title, expected category label(s), and optional ground-truth timestamps.
 
-**Final notes**
-- This design emphasizes explainability and quick iteration. It’s suitable for a final-year project: you can demonstrate end-to-end processing, show per-pipeline outputs, and discuss trade-offs and improvements.
-- If you want, I can also:
-  - Add an architecture diagram (SVG/PNG) to `DOCS/`.
-  - Produce a short README for the `DOCS/` folder with quick-run examples and sample output JSON.
-  - Prepare a short slide-deck (6–10 slides) highlighting the architecture, experiments and results for a panel.
+Metrics
+- Top-1 accuracy: percent of videos where `top_category` equals ground truth.
+- Top-3 accuracy: whether ground-truth appears in the top-3 categories by final score.
+- Per-category precision/recall/F1 — useful to detect weak categories.
+- Per-modality ablation: run with only a single modality to estimate its importance.
 
+10 — Demo script and final-year panel questions (with answers)
+-------------------------------------------------------------
+Demo script (2–4 minutes)
+1. Show code layout and `keywords.json` (explain how categories are defined).
+2. Run `python main.py --input-file samples/baby_shark.mp4 --title "Baby Shark"` (pre-downloaded sample to avoid network issues).
+3. Show live output JSON and explain each field: transcription, per-frame CV labels, per-pipeline scores, final aggregated score.
+4. Demonstrate an edge-case: run an animation video (Kids) where CV missed kids signals but metadata contains "Baby Shark" — explain how aggregation recovered correct label.
 
----
-Generated: December 9, 2025
+Panel Q&A (selected & expanded):
+Technical
+- Q: Why combine modalities? Aren’t titles enough?
+  - A: Titles are powerful but not always reliable (clickbait, missing metadata). Combining CV and ASR reduces single-source failure and improves robustness across a wider range of content.
+
+- Q: How are categories defined and updated?
+  - A: Categories and their keyword lists live in `backend/app/multimodal/keywords.json`. To add a new category, add a key with representative keywords. For larger scale, replace the keyword matcher with a trained text classifier.
+
+- Q: How do you choose modality weights?
+  - A: Default is equal weights for simplicity. In production, you would tune weights on a labeled validation set or learn them using a meta-classifier.
+
+Non-technical
+- Q: How could a platform use this?
+  - A: Automated tagging for recommendations, moderation (flagging inappropriate content), search indexing, or analytics.
+
+11 — Next steps & recommended improvements (actionable)
+-------------------------------------------------------
+Short term (low effort, high impact)
+- Expand keywords and add synonym sets for weak categories.
+- Add simple lemmatization or casefolding in text pipelines.
+- Add a small labeled validation set (100–300 videos) and tune modality weights.
+
+Medium term (requires compute/data)
+- Replace keyword matching for text with a fine-tuned transformer classifier (DistilBERT or RoBERTa) trained on metadata + ASR tokens.
+- Integrate CLIP for better visual-text grounding and zero-shot classification.
+
+Long term (research-level)
+- Replace frame-level CV with short-clip video models (I3D, SlowFast) to capture motion cues.
+- Build a learned fusion network that consumes embeddings from each modality and outputs calibrated probabilities.
+
+Appendix — useful code references
+- `main.py`: orchestrates the pipeline and arguments.
+- `frame_extractor.py`: download + frame sampling.
+- `vision_model.py`: EfficientNet-B0 inference.
+- `ocr_module.py`: EasyOCR usage.
+- `audio_transcriber.py`: ffmpeg + Whisper transcription + text chunking.
+- `metadata_classifier.py`: keyword matching and normalization.
+- `pipeline.py`: normalization + aggregation math.
+
+Contact & credits
+- Author: TaskMind project (repository owner)
+- License & usage: see repository README for licensing and attribution notes.
+
+-- End of document --
+
+Generated: December 10, 2025
